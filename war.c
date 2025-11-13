@@ -14,12 +14,25 @@ typedef struct {
 Territorio* cadastrarTerritorios(int quantidade);
 void exibirTerritorios(Territorio* territorios, int quantidade);
 void atacar(Territorio* atacante, Territorio* defensor);
-void liberarMemoria(Territorio* mapa);
+void liberarMemoria(Territorio* mapa, char** missoesJogadores, int numJogadores);
 void exibirMenuAtaque(Territorio* territorios, int quantidade);
+void atribuirMissao(char* destino, char* missoes[], int totalMissoes);
+int verificarMissao(char* missao, Territorio* mapa, int tamanho, char corJogador[]);
+void exibirMissao(char* missao, int jogador);
+
+// Vetor de missões estratégicas pré-definidas
+char* missoesPredefinidas[] = {
+    "Conquistar 3 territorios seguidos no mapa",
+    "Eliminar todas as tropas da cor Vermelha",
+    "Controlar pelo menos 5 territorios no total",
+    "Conquistar todos os territorios de uma regiao especifica",
+    "Manter 10 tropas em um unico territorio por 2 turnos"
+};
+
+#define TOTAL_MISSOES 5
 
 // Função para cadastrar territórios com alocação dinâmica
 Territorio* cadastrarTerritorios(int quantidade) {
-    // Alocação dinâmica de memória para o vetor de territórios
     Territorio* territorios = (Territorio*)malloc(quantidade * sizeof(Territorio));
     
     if (territorios == NULL) {
@@ -50,6 +63,85 @@ void exibirTerritorios(Territorio* territorios, int quantidade) {
         printf("Cor do exercito: %s\n", territorios[i].cor);
         printf("Tropas: %d\n", territorios[i].tropas);
     }
+}
+
+// Função para atribuir missão a um jogador (passagem por referência)
+void atribuirMissao(char* destino, char* missoes[], int totalMissoes) {
+    // Sorteia uma missão aleatória
+    int indiceMissao = rand() % totalMissoes;
+    
+    // Copia a missão para o destino usando strcpy
+    strcpy(destino, missoes[indiceMissao]);
+}
+
+// Função para exibir a missão de um jogador (passagem por valor)
+void exibirMissao(char* missao, int jogador) {
+    printf("\n=== MISSAO DO JOGADOR %d ===\n", jogador);
+    printf("Sua missao: %s\n", missao);
+    printf("Cumpra esta missao para vencer o jogo!\n");
+}
+
+// Função para verificar se a missão foi cumprida (lógica simplificada)
+int verificarMissao(char* missao, Territorio* mapa, int tamanho, char corJogador[]) {
+    // Verifica qual missão está atribuída e aplica a lógica correspondente
+    
+    // Missão 1: Conquistar 3 territórios seguidos
+    if (strstr(missao, "3 territorios seguidos") != NULL) {
+        for (int i = 0; i < tamanho - 2; i++) {
+            if (strcmp(mapa[i].cor, corJogador) == 0 &&
+                strcmp(mapa[i+1].cor, corJogador) == 0 &&
+                strcmp(mapa[i+2].cor, corJogador) == 0) {
+                return 1; // Missão cumprida
+            }
+        }
+    }
+    
+    // Missão 2: Eliminar todas as tropas da cor Vermelha
+    else if (strstr(missao, "cor Vermelha") != NULL) {
+        int vermelhoExiste = 0;
+        for (int i = 0; i < tamanho; i++) {
+            if (strcmp(mapa[i].cor, "Vermelho") == 0 && mapa[i].tropas > 0) {
+                vermelhoExiste = 1;
+                break;
+            }
+        }
+        return !vermelhoExiste; // Retorna 1 se Vermelho não existe mais
+    }
+    
+    // Missão 3: Controlar pelo menos 5 territórios
+    else if (strstr(missao, "5 territorios") != NULL) {
+        int territoriosControlados = 0;
+        for (int i = 0; i < tamanho; i++) {
+            if (strcmp(mapa[i].cor, corJogador) == 0) {
+                territoriosControlados++;
+            }
+        }
+        return territoriosControlados >= 5;
+    }
+    
+    // Missão 4: Conquistar todos os territórios de uma região específica
+    else if (strstr(missao, "regiao especifica") != NULL) {
+        // Considerando os 3 primeiros territórios como uma "região"
+        int regiaoConquistada = 1;
+        for (int i = 0; i < 3 && i < tamanho; i++) {
+            if (strcmp(mapa[i].cor, corJogador) != 0) {
+                regiaoConquistada = 0;
+                break;
+            }
+        }
+        return regiaoConquistada;
+    }
+    
+    // Missão 5: Manter 10 tropas em um único território
+    else if (strstr(missao, "10 tropas") != NULL) {
+        for (int i = 0; i < tamanho; i++) {
+            if (strcmp(mapa[i].cor, corJogador) == 0 && mapa[i].tropas >= 10) {
+                return 1;
+            }
+        }
+    }
+    
+    return 0; // Missão não cumprida
 }
 
 // Função para simular um ataque entre territórios usando ponteiros
@@ -122,9 +214,16 @@ void exibirMenuAtaque(Territorio* territorios, int quantidade) {
     }
 }
 
-// Função para liberar a memória alocada dinamicamente
-void liberarMemoria(Territorio* mapa) {
+// Função para liberar toda a memória alocada dinamicamente
+void liberarMemoria(Territorio* mapa, char** missoesJogadores, int numJogadores) {
+    // Libera o vetor de territórios
     free(mapa);
+    
+    // Libera as missões de cada jogador
+    for (int i = 0; i < numJogadores; i++) {
+        free(missoesJogadores[i]);
+    }
+    
     printf("Memoria liberada com sucesso!\n");
 }
 
@@ -132,96 +231,155 @@ int main() {
     // Inicializa o gerador de números aleatórios
     srand(time(NULL));
     
-    int quantidade;
+    int quantidade, numJogadores;
     Territorio* territorios;
     
-    printf("=== SISTEMA DE BATALHA ===\n");
+    printf("=== SISTEMA DE BATALHA COM MISSOES ESTRATEGICAS ===\n");
     
     // Solicita o número de territórios ao usuário
     printf("Quantos territorios deseja cadastrar? ");
     scanf("%d", &quantidade);
     
-    // Valida a quantidade de territórios
-    if (quantidade <= 0) {
+    // Solicita o número de jogadores
+    printf("Quantos jogadores vao participar? ");
+    scanf("%d", &numJogadores);
+    
+    // Valida as entradas
+    if (quantidade <= 0 || numJogadores <= 0) {
         printf("Quantidade invalida! Deve ser maior que zero.\n");
         return 1;
+    }
+    
+    // Aloca memória para as missões dos jogadores
+    char** missoesJogadores = (char**)malloc(numJogadores * sizeof(char*));
+    char** coresJogadores = (char**)malloc(numJogadores * sizeof(char*));
+    
+    for (int i = 0; i < numJogadores; i++) {
+        missoesJogadores[i] = (char*)malloc(100 * sizeof(char)); // Missões podem ter até 100 chars
+        coresJogadores[i] = (char*)malloc(10 * sizeof(char));
+        
+        printf("\nDigite a cor do exercito do Jogador %d: ", i + 1);
+        scanf("%9s", coresJogadores[i]);
     }
     
     // Cadastra os territórios com alocação dinâmica
     territorios = cadastrarTerritorios(quantidade);
     
+    // Atribui missões para cada jogador
+    for (int i = 0; i < numJogadores; i++) {
+        atribuirMissao(missoesJogadores[i], missoesPredefinidas, TOTAL_MISSOES);
+        exibirMissao(missoesJogadores[i], i + 1);
+    }
+    
     // Exibe os territórios cadastrados
     exibirTerritorios(territorios, quantidade);
     
-    int opcao;
+    int opcao, turno = 0;
+    int jogoAtivo = 1;
+    
     do {
-        // Menu principal do sistema
-        printf("\n=== MENU PRINCIPAL ===\n");
-        printf("1. Realizar ataque\n");
-        printf("2. Exibir territorios\n");
-        printf("3. Sair\n");
-        printf("Escolha uma opcao: ");
-        scanf("%d", &opcao);
+        turno++;
+        printf("\n=== TURNO %d ===\n", turno);
         
-        switch (opcao) {
-            case 1: {
-                // Realizar ataque entre territórios
-                exibirMenuAtaque(territorios, quantidade);
-                
-                int atacanteIdx, defensorIdx;
-                
-                // Solicita seleção do atacante e defensor
-                printf("\nSelecione o territorio ATACANTE (numero): ");
-                scanf("%d", &atacanteIdx);
-                printf("Selecione o territorio DEFENSOR (numero): ");
-                scanf("%d", &defensorIdx);
-                
-                // Valida os índices informados
-                if (atacanteIdx < 1 || atacanteIdx > quantidade || 
-                    defensorIdx < 1 || defensorIdx > quantidade) {
-                    printf("ERRO: Indices invalidos! Use numeros entre 1 e %d.\n", quantidade);
+        for (int jogadorAtual = 0; jogadorAtual < numJogadores && jogoAtivo; jogadorAtual++) {
+            printf("\n--- Vez do Jogador %d (%s) ---\n", jogadorAtual + 1, coresJogadores[jogadorAtual]);
+            
+            printf("\n=== MENU PRINCIPAL ===\n");
+            printf("1. Realizar ataque\n");
+            printf("2. Exibir territorios\n");
+            printf("3. Ver minha missao\n");
+            printf("4. Passar turno\n");
+            printf("5. Sair do jogo\n");
+            printf("Escolha uma opcao: ");
+            scanf("%d", &opcao);
+            
+            switch (opcao) {
+                case 1: {
+                    // Realizar ataque entre territórios
+                    exibirMenuAtaque(territorios, quantidade);
+                    
+                    int atacanteIdx, defensorIdx;
+                    
+                    // Solicita seleção do atacante e defensor
+                    printf("\nSelecione o territorio ATACANTE (numero): ");
+                    scanf("%d", &atacanteIdx);
+                    printf("Selecione o territorio DEFENSOR (numero): ");
+                    scanf("%d", &defensorIdx);
+                    
+                    // Valida os índices informados
+                    if (atacanteIdx < 1 || atacanteIdx > quantidade || 
+                        defensorIdx < 1 || defensorIdx > quantidade) {
+                        printf("ERRO: Indices invalidos! Use numeros entre 1 e %d.\n", quantidade);
+                        break;
+                    }
+                    
+                    // Valida se não está tentando atacar o mesmo território
+                    if (atacanteIdx == defensorIdx) {
+                        printf("ERRO: Voce nao pode atacar o mesmo territorio!\n");
+                        break;
+                    }
+                    
+                    // Obtém ponteiros para os territórios selecionados
+                    Territorio* atacante = &territorios[atacanteIdx - 1];
+                    Territorio* defensor = &territorios[defensorIdx - 1];
+                    
+                    // Executa o ataque usando ponteiros
+                    atacar(atacante, defensor);
+                    
+                    // Exibe os territórios atualizados após o ataque
+                    printf("\n=== SITUACAO POS-ATAQUE ===\n");
+                    printf("Atacante - %s: %d tropas (%s)\n", 
+                           atacante->nome, atacante->tropas, atacante->cor);
+                    printf("Defensor - %s: %d tropas (%s)\n", 
+                           defensor->nome, defensor->tropas, defensor->cor);
                     break;
                 }
                 
-                // Valida se não está tentando atacar o mesmo território
-                if (atacanteIdx == defensorIdx) {
-                    printf("ERRO: Voce nao pode atacar o mesmo territorio!\n");
+                case 2:
+                    // Exibe todos os territórios
+                    exibirTerritorios(territorios, quantidade);
                     break;
-                }
-                
-                // Obtém ponteiros para os territórios selecionados
-                Territorio* atacante = &territorios[atacanteIdx - 1];
-                Territorio* defensor = &territorios[defensorIdx - 1];
-                
-                // Executa o ataque usando ponteiros
-                atacar(atacante, defensor);
-                
-                // Exibe os territórios atualizados após o ataque
-                printf("\n=== SITUACAO POS-ATAQUE ===\n");
-                printf("Atacante - %s: %d tropas (%s)\n", 
-                       atacante->nome, atacante->tropas, atacante->cor);
-                printf("Defensor - %s: %d tropas (%s)\n", 
-                       defensor->nome, defensor->tropas, defensor->cor);
-                break;
+                    
+                case 3:
+                    // Exibe a missão do jogador atual
+                    exibirMissao(missoesJogadores[jogadorAtual], jogadorAtual + 1);
+                    break;
+                    
+                case 4:
+                    printf("Jogador %d passou o turno.\n", jogadorAtual + 1);
+                    break;
+                    
+                case 5:
+                    jogoAtivo = 0;
+                    break;
+                    
+                default:
+                    printf("Opcao invalida! Tente novamente.\n");
             }
             
-            case 2:
-                // Exibe todos os territórios
-                exibirTerritorios(territorios, quantidade);
+            // Verifica silenciosamente se a missão foi cumprida
+            if (verificarMissao(missoesJogadores[jogadorAtual], territorios, quantidade, coresJogadores[jogadorAtual])) {
+                printf("\n*** PARABENS JOGADOR %d! ***\n", jogadorAtual + 1);
+                printf("*** VOCE CUMPRIU SUA MISSAO E VENCEU O JOGO! ***\n");
+                printf("Missao cumprida: %s\n", missoesJogadores[jogadorAtual]);
+                jogoAtivo = 0;
                 break;
-                
-            case 3:
-                printf("Saindo do sistema...\n");
-                break;
-                
-            default:
-                printf("Opcao invalida! Tente novamente.\n");
+            }
         }
         
-    } while (opcao != 3);
+    } while (opcao != 5 && jogoAtivo);
     
-    // Libera a memória alocada dinamicamente
-    liberarMemoria(territorios);
+    printf("\n=== FIM DO JOGO ===\n");
+    
+    // Libera toda a memória alocada dinamicamente
+    liberarMemoria(territorios, missoesJogadores, numJogadores);
+    
+    // Libera as cores dos jogadores
+    for (int i = 0; i < numJogadores; i++) {
+        free(coresJogadores[i]);
+    }
+    free(coresJogadores);
+    free(missoesJogadores);
     
     return 0;
 }
